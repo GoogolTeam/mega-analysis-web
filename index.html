@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Mega Analysis</title>
+	<script>
+	var analysis={}
+	function elem(id){
+		return document.getElementById(id)
+	}
+	function onload(){
+		elem("inputbox").value="0 1 w".replace(/ /g,"\n")
+		elem("nextoutput").onkeypress=nextoutputenter
+	}
+	async function analyze(){
+		var inputbox=elem("inputbox")
+		var outputbox=elem("outputbox")
+		var ordinals=inputbox.value.split("\n")
+		var output=""
+		for(var i=0;i<ordinals.length;i++){
+			if(analysis[ordinals[i]]===undefined){
+				elem("analysis").style.display=""
+				var newordinal=await analyzeordinal(ordinals[i])
+				if(newordinal!=""){
+					analysis[ordinals[i]]=newordinal
+				}else{
+					continue
+				}
+			}
+			if(analysis[ordinals[i]]!==undefined){
+				output+=analysis[ordinals[i]]+"\n"
+			}else{
+				output+="?\n"
+			}
+		}
+		elem("analysis").style.display="none"
+		outputbox.value=output
+	}
+	var savedresolve;
+	async function analyzeordinal(ordinal){
+		var nextoutput=elem("nextinput")
+		nextinput.textContent=ordinal
+		nextoutput.focus()
+		var promise=new Promise((resolve,reject)=>{
+			savedresolve=resolve
+		})
+		return promise
+	}
+	function nextoutputenter(e){
+		if(e.keyCode==13){
+			savedresolve(e.srcElement.value)
+		}
+	}
+	</script>
+</head>
+<body onload="onload()">
+	<textarea id="inputbox"></textarea>
+	<textarea id="outputbox"></textarea>
+	<button onclick="analyze()">Analyze!</button>
+	<div id="analysis" style="display: none">
+		<text id="nextinput"></text>
+		<input id="nextoutput"></input>
+	</div>
+</body>
+</html>
