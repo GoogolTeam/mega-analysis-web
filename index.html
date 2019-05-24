@@ -3,7 +3,8 @@
 <head>
 	<title>Mega Analysis</title>
 	<script>
-	var analysis={}
+	var analyses={TON:{},UNOCF:{}}
+	var analysis;
 	function elem(id){
 		return document.getElementById(id)
 	}
@@ -12,6 +13,7 @@
 		elem("nextoutput").onkeypress=nextoutputenter
 	}
 	async function analyze(){
+		analysis=analyses[notation]
 		var inputbox=elem("inputbox")
 		var outputbox=elem("outputbox")
 		var ordinals=inputbox.value.split("\n")
@@ -69,53 +71,124 @@
 			savedresolve(value)
 		}
 	}
-	var baseordinals=["0","Z"]
 	function parse(value){
-		return value.split(" ")
+		if(notation=="TON"){
+			return value.split(" ")
+		}else if(notation=="UNOCF"){
+			if(value.match(/ p /)){
+				return {type:"psi",terms:value.split(" p ")}
+			}else if(value.match(/ \+ /)){
+				return {type:"sum",terms:value.split(" + ")}
+			}
+		}
 	}
+	var notation="UNOCF"
+	var formatid="depthmax"
 	function getreqordinals(ordinal){
-		//depth 1
-		/*if(baseordinals.includes(ordinal)){
-			return []
-		}else if(analysis[ordinal]!==undefined){
-			return []
-		}else{
-			return [ordinal]
-		}*/
-		//depth max
-		var value=analysis[ordinal]
-		if(baseordinals.includes(ordinal)){
-			return []
-		}else if(value===undefined){
-			return [ordinal]
-		}else if(value.length==1){
-			return []
-		}else{
-			return getreqordinals(value[0]).concat(getreqordinals(value[1]))
+		if(notation=="TON"){
+			var baseordinals=["0","Z"]
+			if(formatid=="depth1"){
+				if(baseordinals.includes(ordinal)){
+					return []
+				}else if(analysis[ordinal]!==undefined){
+					return []
+				}else{
+					return [ordinal]
+				}
+			}else if(formatid=="depthmax"){
+				//depth max
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return []
+				}else if(value===undefined){
+					return [ordinal]
+				}else if(value.length==1){
+					return []
+				}else{
+					return getreqordinals(value[0]).concat(getreqordinals(value[1]))
+				}
+			}
+		}else if(notation=="UNOCF"){
+			var baseordinals=["0","I"]
+			if(formatid=="depth1"){
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return []
+				}else if(value===undefined){
+					return [ordinal]
+				}else if(value.type=="psi"||value.type=="sum"){
+					return value.terms.filter(a=>analysis[a]===undefined)
+				}
+			}else if(formatid=="depthmax"){
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return []
+				}else if(value===undefined){
+					return [ordinal]
+				}else if(value.type=="psi"){
+					return getreqordinals(value.terms[0]).concat(getreqordinals(value.terms[1]))
+				}else if(value.type=="sum"){
+					var ret=[]
+					for(var i=0;i<value.terms.length;i++){
+						ret=ret.concat(getreqordinals(value.terms[i]))
+					}
+					return ret
+				}
+			}
 		}
 	}
 	function format(ordinal){
-		//depth 1
-		/*var value=analysis[ordinal]
-		if(baseordinals.includes(ordinal)){
-			return ordinal
-		}else if(value===undefined){
-			return "?"
-		}else if(value.length==1){
-			return value
-		}else{
-			return "C("+value[0]+","+value[1]+")"
-		}*/
-		//depth max
-		var value=analysis[ordinal]
-		if(baseordinals.includes(ordinal)){
-			return ordinal
-		}else if(value===undefined){
-			return "?"
-		}else if(value.length==1){
-			return value
-		}else{
-			return "C("+format(value[0])+","+format(value[1])+")"
+		if(notation=="TON"){
+			var baseordinals=["0","Z"]
+			if(formatid=="depth1"){
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return ordinal
+				}else if(value===undefined){
+					return "?"
+				}else if(value.length==1){
+					return value
+				}else{
+					return "C("+value[0]+","+value[1]+")"
+				}
+			}else if(formatid=="depthmax"){
+				//depth max
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return ordinal
+				}else if(value===undefined){
+					return "?"
+				}else if(value.length==1){
+					return value
+				}else{
+					return "C("+format(value[0])+","+format(value[1])+")"
+				}
+			}
+		}else if(notation=="UNOCF"){
+			var baseordinals=["0","I"]
+			if(formatid=="depth1"){
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return ordinal
+				}else if(value===undefined){
+					return "?"
+				}else if(value.type=="psi"){
+					return "psi_{"+value.terms[0]+"}("+value.terms[1]+")"
+				}else if(value.type=="sum"){
+					return value.terms.join("+")
+				}
+			}else if(formatid=="depthmax"){
+				var value=analysis[ordinal]
+				if(baseordinals.includes(ordinal)){
+					return ordinal
+				}else if(value===undefined){
+					return "?"
+				}else if(value.type=="psi"){
+					return "psi_{"+format(value.terms[0])+"}("+format(value.terms[1])+")"
+				}else if(value.type=="sum"){
+					return value.terms.map(format).join("+")
+				}
+			}
 		}
 	}
 	</script>
