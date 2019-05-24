@@ -8,36 +8,53 @@
 		return document.getElementById(id)
 	}
 	function onload(){
-		elem("inputbox").value="0 1 w".replace(/ /g,"\n")
+		elem("inputbox").value="0 1 2 w w^2 w^w e0 z0 g0 W W_2 Z".replace(/ /g,"\n")
 		elem("nextoutput").onkeypress=nextoutputenter
 	}
 	async function analyze(){
 		var inputbox=elem("inputbox")
 		var outputbox=elem("outputbox")
 		var ordinals=inputbox.value.split("\n")
-		var output=""
+		var output=new Array(ordinals.length)
+		var reqordinals=new Array(ordinals.length)
 		for(var i=0;i<ordinals.length;i++){
+			output[i]=format(ordinals[i])
+			reqordinals[i]=getreqordinals(ordinals[i])
+		}
+		for(var i=0;i<reqordinals.length;){
+			outputbox.value=output.join("\n")
+			if(reqordinals[i].length==0){
+				i++
+				if(i==reqordinals.length){
+					break
+				}
+			}else{
+				elem("analysis").style.display=""
+				var newordinal=await analyzeordinal(reqordinals[i][0])
+				if(newordinal!=""){
+					analysis[reqordinals[i][0]]=parse(newordinal)
+				}
+			}
+			output[i]=format(ordinals[i])
+			reqordinals[i]=getreqordinals(ordinals[i])
+		}
+		/*for(var i=0;i<ordinals.length;i++){
 			if(analysis[ordinals[i]]===undefined){
 				elem("analysis").style.display=""
 				var newordinal=await analyzeordinal(ordinals[i])
 				if(newordinal!=""){
-					analysis[ordinals[i]]=newordinal
-				}else{
-					continue
+					analysis[ordinals[i]]=parse(newordinal)
 				}
 			}
-			if(analysis[ordinals[i]]!==undefined){
-				output+=analysis[ordinals[i]]+"\n"
-			}else{
-				output+="?\n"
-			}
-		}
+			output+=format(ordinals[i])+"\n"
+		}*/
 		elem("analysis").style.display="none"
-		outputbox.value=output
+		outputbox.value=output.join("\n")
 	}
 	var savedresolve;
 	async function analyzeordinal(ordinal){
-		var nextoutput=elem("nextinput")
+		var nextinput=elem("nextinput")
+		var nextoutput=elem("nextoutput")
 		nextinput.textContent=ordinal
 		nextoutput.focus()
 		var promise=new Promise((resolve,reject)=>{
@@ -47,10 +64,67 @@
 	}
 	function nextoutputenter(e){
 		if(e.keyCode==13){
-			savedresolve(e.srcElement.value)
+			value=e.srcElement.value
+			e.srcElement.value=""
+			savedresolve(value)
+		}
+	}
+	var baseordinals=["0","Z"]
+	function parse(value){
+		return value.split(" ")
+	}
+	function getreqordinals(ordinal){
+		//depth 1
+		/*if(baseordinals.includes(ordinal)){
+			return []
+		}else if(analysis[ordinal]!==undefined){
+			return []
+		}else{
+			return [ordinal]
+		}*/
+		//depth max
+		var value=analysis[ordinal]
+		if(baseordinals.includes(ordinal)){
+			return []
+		}else if(value===undefined){
+			return [ordinal]
+		}else if(value.length==1){
+			return []
+		}else{
+			return getreqordinals(value[0]).concat(getreqordinals(value[1]))
+		}
+	}
+	function format(ordinal){
+		//depth 1
+		/*var value=analysis[ordinal]
+		if(baseordinals.includes(ordinal)){
+			return ordinal
+		}else if(value===undefined){
+			return "?"
+		}else if(value.length==1){
+			return value
+		}else{
+			return "C("+value[0]+","+value[1]+")"
+		}*/
+		//depth max
+		var value=analysis[ordinal]
+		if(baseordinals.includes(ordinal)){
+			return ordinal
+		}else if(value===undefined){
+			return "?"
+		}else if(value.length==1){
+			return value
+		}else{
+			return "C("+format(value[0])+","+format(value[1])+")"
 		}
 	}
 	</script>
+	<style>
+	textarea{
+		width:200px;
+		height:300px;
+	}
+	</style>
 </head>
 <body onload="onload()">
 	<textarea id="inputbox"></textarea>
@@ -58,6 +132,7 @@
 	<button onclick="analyze()">Analyze!</button>
 	<div id="analysis" style="display: none">
 		<text id="nextinput"></text>
+		<br>
 		<input id="nextoutput"></input>
 	</div>
 </body>
