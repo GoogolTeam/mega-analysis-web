@@ -71,6 +71,21 @@
 			savedresolve(value)
 		}
 	}
+	function save(notation){
+		localStorage.setItem(notation,JSON.stringify(analyses[notation]))
+	}
+	function saveall(){
+		var notations=["TON","UNOCF"]
+		for(var i=0;i<notations.length;i++){
+			save(notations[i])
+		}
+	}
+	function save2(notation){
+		elem("exportbox").value=JSON.stringify(analyses[notation])
+	}
+	function saveall2(notation){
+		elem("exportbox").value=JSON.stringify(analyses)
+	}
 	function parse(value){
 		if(notation=="TON"){
 			return value.split(" ")
@@ -193,20 +208,26 @@
 	}
 	</script>
 	<style>
-	textarea{
+	.analysisbox{
 		width:200px;
 		height:300px;
 	}
 	</style>
 </head>
 <body onload="onload()">
-	<textarea id="inputbox"></textarea>
-	<textarea id="outputbox"></textarea>
+	<textarea id="inputbox" class="analysisbox"></textarea>
+	<textarea id="outputbox" class="analysisbox"></textarea>
 	<button onclick="analyze()">Analyze!</button>
 	<div id="analysis" style="display: none">
 		<text id="nextinput"></text>
 		<br>
 		<input id="nextoutput"></input>
 	</div>
+	<br>
+	<button onclick="save(notation)">Save analysis for current notation</button>
+	<button onclick="saveall()">Save analysis for all notations</button>
+	<button onclick="save2(notation)">Export analysis for current notation</button>
+	<button onclick="saveall2()">Export analysis for all notations</button>
+	<textarea id="exportbox"></textarea>
 </body>
 </html>
