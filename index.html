@@ -21,8 +21,8 @@
 		var reqordinals=new Array(ordinals.length)
 		var skipordinals=[]
 		for(var i=0;i<ordinals.length;i++){
-			output[i]=format(ordinals[i])
-			reqordinals[i]=getreqordinals(ordinals[i])
+			output[i]=format(ordinals[i],notation,formatid)
+			reqordinals[i]=getreqordinals(ordinals[i],notation,formatid)
 		}
 		for(var i=0;i<reqordinals.length;){
 			outputbox.value=output.join("\n")
@@ -42,24 +42,14 @@
 				elem("analysis").style.display=""
 				var newordinal=await analyzeordinal(nextordinal)
 				if(newordinal!=""){
-					analysis[nextordinal]=parse(newordinal)
+					analysis[nextordinal]=parse(newordinal,notation)
 				}else{
 					skipordinals.push(nextordinal)
 				}
 			}
-			output[i]=format(ordinals[i])
-			reqordinals[i]=getreqordinals(ordinals[i])
+			output[i]=format(ordinals[i],notation,formatid)
+			reqordinals[i]=getreqordinals(ordinals[i],notation,formatid)
 		}
-		/*for(var i=0;i<ordinals.length;i++){
-			if(analysis[ordinals[i]]===undefined){
-				elem("analysis").style.display=""
-				var newordinal=await analyzeordinal(ordinals[i])
-				if(newordinal!=""){
-					analysis[ordinals[i]]=parse(newordinal)
-				}
-			}
-			output+=format(ordinals[i])+"\n"
-		}*/
 		elem("analysis").style.display="none"
 		outputbox.value=output.join("\n")
 	}
@@ -97,7 +87,7 @@
 		elem("exportbox").value=JSON.stringify(analyses)
 	}
 	function load(notation){
-		analyses[notation].assign(localStorage.getItem(notation))
+		Object.assign(analyses[notation],localStorage.getItem(notation))
 	}
 	function loadall(){
 		var notations=["TON","UNOCF"]
@@ -132,7 +122,7 @@
 		formatids[notation]%=formats[notation].length
 		formatid=formats[notation][formatids[notation]]
 	}
-	function parse(value){
+	function parse(value,notation){
 		if(notation=="TON"){
 			return value.split(" ")
 		}else if(notation=="UNOCF"){
@@ -143,7 +133,7 @@
 			}
 		}
 	}
-	function getreqordinals(ordinal){
+	function getreqordinals(ordinal,notation,formatid){
 		if(notation=="TON"){
 			var baseordinals=["0","Z"]
 			if(formatid=="depth1"){
@@ -164,7 +154,7 @@
 				}else if(value.length==1){
 					return []
 				}else{
-					return getreqordinals(value[0]).concat(getreqordinals(value[1]))
+					return getreqordinals(value[0],notation,formatid).concat(getreqordinals(value[1],notation,formatid))
 				}
 			}
 		}else if(notation=="UNOCF"){
@@ -185,18 +175,18 @@
 				}else if(value===undefined){
 					return [ordinal]
 				}else if(value.type=="psi"){
-					return getreqordinals(value.terms[0]).concat(getreqordinals(value.terms[1]))
+					return getreqordinals(value.terms[0],notation,formatid).concat(getreqordinals(value.terms[1],notation,formatid))
 				}else if(value.type=="sum"){
 					var ret=[]
 					for(var i=0;i<value.terms.length;i++){
-						ret=ret.concat(getreqordinals(value.terms[i]))
+						ret=ret.concat(getreqordinals(value.terms[i],notation,formatid))
 					}
 					return ret
 				}
 			}
 		}
 	}
-	function format(ordinal){
+	function format(ordinal,notation,formatid){
 		if(notation=="TON"){
 			var baseordinals=["0","Z"]
 			if(formatid=="depth1"){
@@ -220,7 +210,7 @@
 				}else if(value.length==1){
 					return value
 				}else{
-					return "C("+format(value[0])+","+format(value[1])+")"
+					return "C("+format(value[0],notation,formatid)+","+format(value[1],notation,formatid)+")"
 				}
 			}
 		}else if(notation=="UNOCF"){
@@ -243,12 +233,89 @@
 				}else if(value===undefined){
 					return "?"
 				}else if(value.type=="psi"){
-					return "psi_{"+format(value.terms[0])+"}("+format(value.terms[1])+")"
+					return "psi_{"+format(value.terms[0],notation,formatid)+"}("+format(value.terms[1],notation,formatid)+")"
 				}else if(value.type=="sum"){
-					return value.terms.map(format).join("+")
+					return value.terms.map(a=>format(a,notation,formatid)).join("+")
 				}
 			}
 		}
+	}
+	function expand(ordinal){
+		var baseordinals=["0","I"]
+		var value=analyses["UNOCF"][ordinal]
+		if(baseordinals.includes(ordinal)){
+			return ordinal
+		}else if(value===undefined){
+			return "?"
+		}else{
+			return {type:value.type,terms:value.terms.map(expand)}
+		}
+	}
+	function compare(a,b){
+		//sums
+		if(a.type=="sum"||b.type=="sum"){
+			if(a.type!="sum"){
+				return compare({type:"sum",terms:[a]},b)
+			}
+			if(b.type!="sum"){
+				return compare(a,{type:"sum",terms:[b]})
+			}
+			for(var i=0;i<a.terms.length&&i<b.terms.length;i++){
+				if(compare(a.terms[i],b.terms[i])){
+					return true
+				}else if(compare(b.terms[i],a.terms[i])){
+					return false
+				}
+			}
+			return false
+		}
+		//basis
+		if(a=="0"&&b!="0"){
+			return true
+		}
+		if(b=="0"){
+			return false
+		}
+		if(a=="I"){
+			return false
+		}
+		if(a!="I"&&b=="I"){
+			return true
+		}
+		//I subscripts
+		//psi_{psi_I(0)}(0)
+		one={type:"psi",terms:[{type:"psi",terms:["I","0"]},"0"]}
+		if(a.terms[0]=="I"){
+			//psi_{psi_I(x+1)}(0)
+			return compare({type:"psi",terms:[{type:"psi",terms:["I",sum(a.terms[1],one)]},"0"]},b)
+		}
+		if(a.terms[1]=="I"){
+			return compare(a,{type:"psi",terms:[{type:"psi",terms:["I",sum(b.terms[1],one)]},"0"]})
+		}
+		//final comparison
+		if(compare(a.terms[0],b.terms[0])){
+			return true
+		}
+		if(compare(b.terms[0],a.terms[0])){
+			return false
+		}
+		if(compare(a.terms[1],b.terms[1])){
+			return true
+		}
+		if(compare(b.terms[1],a.terms[1])){
+			return false
+		}
+		//equality
+		return false
+	}
+	function sum(a,b){
+		if(a.type!="sum"){
+			return sum({type:"sum",terms:[a]},b)
+		}
+		if(b.type!="sum"){
+			return sum(a,{type:"sum",terms:[b]})
+		}
+		return {type:"sum",terms:a.terms.concat(b.terms)}
 	}
 	</script>
 	<style>
