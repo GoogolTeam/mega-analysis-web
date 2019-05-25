@@ -106,14 +106,31 @@
 		}
 	}
 	function load2(notation){
-		analyses[notation].assign(JSON.parse(elem("exportbox").value))
+		Object.assign(analyses[notation],JSON.parse(elem("exportbox").value))
 	}
 	function loadall2(){
 		var newanalysis=JSON.parse(elem("exportbox").value)
 		var notations=["TON","UNOCF"]
 		for(var i=0;i<notations.length;i++){
-			analyses[notation].assign(newanalysis[notations[i]])
+			Object.assign(analyses[notation],newanalysis[notations[i]])
 		}
+	}
+	var notations=["UNOCF","TON"]
+	var notationid=0
+	var notation="UNOCF"
+	var formats={"UNOCF":["depth1","depthmax"],"TON":["depth1","depthmax"]}
+	var formatids={"UNOCF":1,"TON":1}
+	var formatid="depthmax"
+	function nextnotation(){
+		notationid++
+		notationid%=notations.length
+		notation=notations[notationid]
+		formatid=formats[notation][formatids[notation]]
+	}
+	function nextformat(){
+		formatids[notation]++
+		formatids[notation]%=formats[notation].length
+		formatid=formats[notation][formatids[notation]]
 	}
 	function parse(value){
 		if(notation=="TON"){
@@ -126,8 +143,6 @@
 			}
 		}
 	}
-	var notation="UNOCF"
-	var formatid="depthmax"
 	function getreqordinals(ordinal){
 		if(notation=="TON"){
 			var baseordinals=["0","Z"]
@@ -252,6 +267,9 @@
 		<br>
 		<input id="nextoutput"></input>
 	</div>
+	<br>
+	<button onclick="nextnotation()">Change notation</button>
+	<button onclick="nextformat()">Change output format</button>
 	<br>
 	<button onclick="save(notation)">Save analysis for current notation</button>
 	<button onclick="saveall()">Save analysis for all notations</button>
