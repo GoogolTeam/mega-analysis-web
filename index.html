@@ -11,6 +11,7 @@
 	function onload(){
 		elem("inputbox").value="0 1 2 w w^2 w^w e0 z0 g0 W W_2 Z".replace(/ /g,"\n")
 		elem("nextoutput").onkeypress=nextoutputenter
+		load2("UNOCF")
 	}
 	async function analyze(){
 		analysis=analyses[notation]
@@ -139,14 +140,14 @@
 			if(formatid=="depth1"){
 				if(baseordinals.includes(ordinal)){
 					return []
-				}else if(analysis[ordinal]!==undefined){
+				}else if(expand1(ordinal,notation)!==undefined){
 					return []
 				}else{
 					return [ordinal]
 				}
 			}else if(formatid=="depthmax"){
 				//depth max
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return []
 				}else if(value===undefined){
@@ -160,16 +161,16 @@
 		}else if(notation=="UNOCF"){
 			var baseordinals=["0","I"]
 			if(formatid=="depth1"){
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return []
 				}else if(value===undefined){
 					return [ordinal]
 				}else if(value.type=="psi"||value.type=="sum"){
-					return value.terms.filter(a=>analysis[a]===undefined)
+					return value.terms.filter(a=>expand1(a,notation)===undefined)
 				}
 			}else if(formatid=="depthmax"){
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return []
 				}else if(value===undefined){
@@ -190,7 +191,7 @@
 		if(notation=="TON"){
 			var baseordinals=["0","Z"]
 			if(formatid=="depth1"){
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return ordinal
 				}else if(value===undefined){
@@ -202,7 +203,7 @@
 				}
 			}else if(formatid=="depthmax"){
 				//depth max
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return ordinal
 				}else if(value===undefined){
@@ -216,7 +217,7 @@
 		}else if(notation=="UNOCF"){
 			var baseordinals=["0","I"]
 			if(formatid=="depth1"){
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return ordinal
 				}else if(value===undefined){
@@ -227,7 +228,7 @@
 					return value.terms.join("+")
 				}
 			}else if(formatid=="depthmax"){
-				var value=analysis[ordinal]
+				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return ordinal
 				}else if(value===undefined){
@@ -240,13 +241,24 @@
 			}
 		}
 	}
+	function expand1(ordinal,notation){
+		var baseordinals=["0","I"]
+		var value=analyses[notation][ordinal]
+		if(baseordinals.includes(ordinal)||typeof ordinal=="object"){
+			return ordinal
+		}else if(value===undefined){
+			return undefined
+		}else{
+			return {type:value.type,terms:value.terms}
+		}
+	}
 	function expand(ordinal){
 		var baseordinals=["0","I"]
 		var value=analyses["UNOCF"][ordinal]
 		if(baseordinals.includes(ordinal)){
 			return ordinal
 		}else if(value===undefined){
-			return "?"
+			return undefined
 		}else{
 			return {type:value.type,terms:value.terms.map(expand)}
 		}
@@ -267,7 +279,7 @@
 					return false
 				}
 			}
-			return false
+			return b.terms.length>a.terms.length
 		}
 		//basis
 		if(a=="0"&&b!="0"){
@@ -282,31 +294,21 @@
 		if(a!="I"&&b=="I"){
 			return true
 		}
+		//double I subscripts, needed to avoid infinite loop
+		if(a.terms[0]=="I"&&b.terms[0]=="I"){
+			return compare(a.terms[1],b.terms[1])
+		}
 		//I subscripts
 		//psi_{psi_I(0)}(0)
-		one={type:"psi",terms:[{type:"psi",terms:["I","0"]},"0"]}
+		one=psi(psi("I","0"),"0")
 		if(a.terms[0]=="I"){
 			//psi_{psi_I(x+1)}(0)
-			return compare({type:"psi",terms:[{type:"psi",terms:["I",sum(a.terms[1],one)]},"0"]},b)
-		}
-		if(a.terms[1]=="I"){
-			return compare(a,{type:"psi",terms:[{type:"psi",terms:["I",sum(b.terms[1],one)]},"0"]})
+			return compare(psi(psi("I",sum(a.terms[1],one)),"0"),b)
+		}else if(b.terms[0]=="I"){
+			return compare(a,psi(psi("I",sum(b.terms[1],one)),"0"))
 		}
 		//final comparison
-		if(compare(a.terms[0],b.terms[0])){
-			return true
-		}
-		if(compare(b.terms[0],a.terms[0])){
-			return false
-		}
-		if(compare(a.terms[1],b.terms[1])){
-			return true
-		}
-		if(compare(b.terms[1],a.terms[1])){
-			return false
-		}
-		//equality
-		return false
+		return eq(a.terms[0],b.terms[0])?compare(a.terms[1],b.terms[1]):compare(a.terms[0],b.terms[0])
 	}
 	function eq(a,b){
 		if(a==b){
@@ -321,7 +323,7 @@
 		if(a.type=="psi"){
 			return eq(a.terms[0],b.terms[0])&&eq(a.terms[1],b.terms[1])
 		}
-		for(var i=0;i<a.terms.length;i++){
+		for(var i=0;i<a.terms.length&&i<b.terms.length;i++){
 			if(!eq(a.terms[i],b.terms[i])){
 				return false
 			}
@@ -349,7 +351,7 @@
 				return psi("I",{type:"sum",terms:new Array(n).fill("I")})
 			}
 		}
-		if(a.terms[0]=="I"){
+		if(regular(a)){
 			//FS of uncountable cofinality
 			if(n==0){
 				return psi(a,W)
@@ -365,13 +367,7 @@
 		if(a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],one)){
 			var newterms=Object.assign([],a.terms[1].terms)
 			newterms.pop()
-			var newsum;
-			if(newterms.length>1){
-				newsum={type:"sum",terms:newterms}
-			}else{
-				newsum=newterms[0]
-			}
-			return sum(psi(a.terms[0],newsum),fs(a,n-1))
+			return sum(psi(a.terms[0],listsum(newterms)),fs(a,n-1))
 		}
 		if(eq(a.terms[1],one)){
 			if(eq(a.terms[0],W)){
@@ -380,13 +376,7 @@
 				//psi_psi_I(x+1)(1)
 				var newterms=Object.assign([],a.terms[0].terms[1].terms)
 				newterms.pop()
-				var newsum;
-				if(newterms.length>1){
-					newsum={type:"sum",terms:newterms}
-				}else{
-					newsum=newterms[0]
-				}
-				return sum(psi("I",newsum),fs(a,n-1))
+				return sum(psi("I",listsum(newterms)),fs(a,n-1))
 			}
 		}
 		var w={type:"psi",terms:[W,one]}
@@ -396,8 +386,8 @@
 		return ufs(a,n,a.terms[1])
 	}
 	function cof(a){
-		if(a=="0"){
-			return "0"
+		if(a=="0"||a=="I"){
+			return a
 		}
 		var W=psi("I","0")
 		var one=psi(W,"0")
@@ -409,12 +399,30 @@
 			return cof(a.terms[a.terms.length-1])
 		}
 		if(a.terms[0]=="I"){
+			if(cof(a.terms[1])=="I"){
+				return w
+			}
 			return a
 		}
 		if(eq(cof(a.terms[1]),one)){
 			return w
 		}
 		return cof(a.terms[1])
+	}
+	function regular(a){
+		if(a=="I"){
+			return true
+		}
+		if(a.type!="psi"){
+			return false
+		}
+		if(a.terms[0]!="I"){
+			return false
+		}
+		var W=psi("I","0")
+		var one=psi(W,"0")
+		var argcof=cof(a.terms[1])
+		return argcof=="0"||eq(argcof,one)
 	}
 	function ufs(a,n,x){
 		if(n==0){
@@ -426,13 +434,12 @@
 		if(a.type=="sum"){
 			var newterms=Object.assign([],a.terms)
 			var lastterm=newterms.pop()
-			return sum({type:"sum",terms:newterms},ufs(lastterm,n,x))
+			return sum(listsum(newterms),ufs(lastterm,n,x))
 		}
-		if(a.type=="psi"&&a.terms[0]!="I"){
+		if(a.type=="psi"&&!regular(a)){
 			return psi(a.terms[0],ufs(a.terms[1],n,x))
-		}else if(a.type=="psi"||a=="I"){
-			return ufs(psi(a,x),n-1,x)
 		}
+		return ufs(psi(a,x),n-1,x)
 	}
 	function sum(a,b){
 		if(a=="0"){
@@ -449,21 +456,58 @@
 		}
 		return {type:"sum",terms:a.terms.concat(b.terms)}
 	}
+	function listsum(a){
+		if(a.length==0){
+			return "0"
+		}else if(a.length==1){
+			return a[0]
+		}else{
+			return {type:"sum",terms:a}
+		}
+	}
 	function psi(a,b){
 		if(b=="0"){
 			if(a.type=="psi"&&a.terms[0]=="I"&&a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],1)){
+				//psi_W_x(0)
 				var newterms=Object.assign([],a.terms[0].terms[1].terms)
 				newterms.pop()
-				var newsum;
-				if(newterms.length>1){
-					newsum={type:"sum",terms:newterms}
-				}else{
-					newsum=newterms[0]
-				}
-				return {type:"psi",terms:["I",newsum]}
+				return {type:"psi",terms:["I",listsum(newterms)]}
 			}
 		}
 		return {type:"psi",terms:[a,b]}
+	}
+	function interp(a,b){
+		if(compare(b,a)){
+			return interp(b,a)
+		}
+		if(cof(b)=="1"){
+			return "?" //in rulers, always x,x+1
+		}
+		var i;
+		for(i=0;i<1000;i++){
+			if(compare(a,fs(b,i))){
+				break;
+			}
+		}
+		return fs(b,i)
+	}
+	function ruler(num,den){
+		if(!den){
+			return ruler(num,1)
+		}
+		if(num==den){
+			return "I"
+		}
+		if(num==0){
+			return "0"
+		}
+		if(num%1||den%1){
+			return ruler(num*2,den*2)
+		}
+		if(!(num%2)&&!(den%2)){
+			return ruler(num/2,den/2)
+		}
+		return interp(ruler(num-1,den),ruler(num+1,den))
 	}
 	</script>
 	<style>
