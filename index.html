@@ -19,22 +19,32 @@
 		var ordinals=inputbox.value.split("\n")
 		var output=new Array(ordinals.length)
 		var reqordinals=new Array(ordinals.length)
+		var skipordinals=[]
 		for(var i=0;i<ordinals.length;i++){
 			output[i]=format(ordinals[i])
 			reqordinals[i]=getreqordinals(ordinals[i])
 		}
 		for(var i=0;i<reqordinals.length;){
 			outputbox.value=output.join("\n")
-			if(reqordinals[i].length==0){
+			var nextordinal=0;
+			for(var j=0;j<reqordinals[i].length;j++){
+				if(!skipordinals.includes(reqordinals[i][j])){
+					nextordinal=reqordinals[i][j]
+					break
+				}
+			}
+			if(!nextordinal){
 				i++
 				if(i==reqordinals.length){
 					break
 				}
 			}else{
 				elem("analysis").style.display=""
-				var newordinal=await analyzeordinal(reqordinals[i][0])
+				var newordinal=await analyzeordinal(nextordinal)
 				if(newordinal!=""){
-					analysis[reqordinals[i][0]]=parse(newordinal)
+					analysis[nextordinal]=parse(newordinal)
+				}else{
+					skipordinals.push(nextordinal)
 				}
 			}
 			output[i]=format(ordinals[i])
@@ -85,6 +95,25 @@
 	}
 	function saveall2(notation){
 		elem("exportbox").value=JSON.stringify(analyses)
+	}
+	function load(notation){
+		analyses[notation].assign(localStorage.getItem(notation))
+	}
+	function loadall(){
+		var notations=["TON","UNOCF"]
+		for(var i=0;i<notations.length;i++){
+			load(notations[i])
+		}
+	}
+	function load2(notation){
+		analyses[notation].assign(JSON.parse(elem("exportbox").value))
+	}
+	function loadall2(){
+		var newanalysis=JSON.parse(elem("exportbox").value)
+		var notations=["TON","UNOCF"]
+		for(var i=0;i<notations.length;i++){
+			analyses[notation].assign(newanalysis[notations[i]])
+		}
 	}
 	function parse(value){
 		if(notation=="TON"){
@@ -228,6 +257,11 @@
 	<button onclick="saveall()">Save analysis for all notations</button>
 	<button onclick="save2(notation)">Export analysis for current notation</button>
 	<button onclick="saveall2()">Export analysis for all notations</button>
+	<br>
+	<button onclick="load(notation)">Load analysis for current notation</button>
+	<button onclick="loadall()">Load analysis for all notations</button>
+	<button onclick="load2(notation)">Import analysis for current notation</button>
+	<button onclick="loadall2()">Import analysis for all notations</button>
 	<textarea id="exportbox"></textarea>
 </body>
 </html>
