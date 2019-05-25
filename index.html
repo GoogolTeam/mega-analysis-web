@@ -308,7 +308,139 @@
 		//equality
 		return false
 	}
+	function eq(a,b){
+		if(a==b){
+			return true
+		}
+		if(a=="0"&&b!="0"||a!="0"&&b=="0"||a=="I"&&b!="I"||a!="I"&&b=="I"){
+			return false
+		}
+		if(a.type!=b.type){
+			return false
+		}
+		if(a.type=="psi"){
+			return eq(a.terms[0],b.terms[0])&&eq(a.terms[1],b.terms[1])
+		}
+		for(var i=0;i<a.terms.length;i++){
+			if(!eq(a.terms[i],b.terms[i])){
+				return false
+			}
+		}
+		return true
+	}
+	function fs(a,n){
+		if(a.type=="sum"){
+			var newterms=Object.assign([],a.terms)
+			var lastterm=newterms.pop()
+			return sum({type:"sum",terms:newterms},fs(lastterm,n))
+		}
+		if(a=="0"){
+			return "0"
+		}
+		var W=psi("I","0")
+		var one=psi(W,"0")
+		if(a=="I"){
+			//FS of uncountable cofinality
+			if(n==0){
+				return W
+			}else if(n==1){
+				return psi("I","I")
+			}else{
+				return psi("I",{type:"sum",terms:new Array(n).fill("I")})
+			}
+		}
+		if(a.terms[0]=="I"){
+			//FS of uncountable cofinality
+			if(n==0){
+				return psi(a,W)
+			}else if(n==1){
+				return psi(a,psi("I","I"))
+			}else{
+				return psi(a,psi("I",{type:"sum",terms:new Array(n).fill("I")}))
+			}
+		}
+		if(n==0){
+			return "0"
+		}
+		if(a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],one)){
+			var newterms=Object.assign([],a.terms[1].terms)
+			newterms.pop()
+			var newsum;
+			if(newterms.length>1){
+				newsum={type:"sum",terms:newterms}
+			}else{
+				newsum=newterms[0]
+			}
+			return sum(psi(a.terms[0],newsum),fs(a,n-1))
+		}
+		if(eq(a.terms[1],one)){
+			if(eq(a.terms[0],W)){
+				return sum(one,fs(a,n-1))
+			}else{
+				//psi_psi_I(x+1)(1)
+				var newterms=Object.assign([],a.terms[0].terms[1].terms)
+				newterms.pop()
+				var newsum;
+				if(newterms.length>1){
+					newsum={type:"sum",terms:newterms}
+				}else{
+					newsum=newterms[0]
+				}
+				return sum(psi("I",newsum),fs(a,n-1))
+			}
+		}
+		var w={type:"psi",terms:[W,one]}
+		if(eq(cof(a.terms[1]),w)){
+			return psi(a.terms[0],fs(a.terms[1],n))
+		}
+		return ufs(a,n,a.terms[1])
+	}
+	function cof(a){
+		if(a=="0"){
+			return "0"
+		}
+		var W=psi("I","0")
+		var one=psi(W,"0")
+		var w={type:"psi",terms:[W,one]}
+		if(eq(a,one)){
+			return one
+		}
+		if(a.type=="sum"){
+			return cof(a.terms[a.terms.length-1])
+		}
+		if(a.terms[0]=="I"){
+			return a
+		}
+		if(eq(cof(a.terms[1]),one)){
+			return w
+		}
+		return cof(a.terms[1])
+	}
+	function ufs(a,n,x){
+		if(n==0){
+			return "0"
+		}
+		if(a=="0"){
+			return "0"
+		}
+		if(a.type=="sum"){
+			var newterms=Object.assign([],a.terms)
+			var lastterm=newterms.pop()
+			return sum({type:"sum",terms:newterms},ufs(lastterm,n,x))
+		}
+		if(a.type=="psi"&&a.terms[0]!="I"){
+			return psi(a.terms[0],ufs(a.terms[1],n,x))
+		}else if(a.type=="psi"||a=="I"){
+			return ufs(psi(a,x),n-1,x)
+		}
+	}
 	function sum(a,b){
+		if(a=="0"){
+			return b
+		}
+		if(b=="0"){
+			return a
+		}
 		if(a.type!="sum"){
 			return sum({type:"sum",terms:[a]},b)
 		}
@@ -316,6 +448,22 @@
 			return sum(a,{type:"sum",terms:[b]})
 		}
 		return {type:"sum",terms:a.terms.concat(b.terms)}
+	}
+	function psi(a,b){
+		if(b=="0"){
+			if(a.type=="psi"&&a.terms[0]=="I"&&a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],1)){
+				var newterms=Object.assign([],a.terms[0].terms[1].terms)
+				newterms.pop()
+				var newsum;
+				if(newterms.length>1){
+					newsum={type:"sum",terms:newterms}
+				}else{
+					newsum=newterms[0]
+				}
+				return {type:"psi",terms:["I",newsum]}
+			}
+		}
+		return {type:"psi",terms:[a,b]}
 	}
 	</script>
 	<style>
@@ -347,6 +495,6 @@
 	<button onclick="loadall()">Load analysis for all notations</button>
 	<button onclick="load2(notation)">Import analysis for current notation</button>
 	<button onclick="loadall2()">Import analysis for all notations</button>
-	<textarea id="exportbox"></textarea>
+	<textarea id="exportbox">{"1":{"type":"psi","terms":["W","0"]},"2":{"type":"sum","terms":["1","1"]},"3":{"type":"sum","terms":["1","1","1"]},"4":{"type":"sum","terms":["1","1","1","1"]},"5":{"type":"sum","terms":["1","1","1","1","1"]},"w":{"type":"psi","terms":["W","1"]},"w^2":{"type":"psi","terms":["W","2"]},"w^w":{"type":"psi","terms":["W","w"]},"e0":{"type":"psi","terms":["W","W"]},"z0":{"type":"psi","terms":["W","W^2"]},"W^2":{"type":"psi","terms":["W_2","W"]},"W_2":{"type":"psi","terms":["I","1"]},"g0":{"type":"psi","terms":["W","W^W"]},"W^W":{"type":"psi","terms":["W_2","W^2"]},"w+1":{"type":"sum","terms":["w","1"]},"w+2":{"type":"sum","terms":["w","2"]},"w2":{"type":"sum","terms":["w","w"]},"w2+1":{"type":"sum","terms":["w","w","1"]},"w3":{"type":"sum","terms":["w","w","w"]},"w4":{"type":"sum","terms":["w","w","w","w"]},"w^2+w":{"type":"sum","terms":["w^2","w"]},"w^2*2":{"type":"sum","terms":["w^2","w^2"]},"w^2*3":{"type":"sum","terms":["w^2","w^2","w^2"]},"w^3":{"type":"psi","terms":["W","3"]},"w^3*2":{"type":"sum","terms":["w^3","w^3"]},"w^4":{"type":"psi","terms":["W","4"]},"w^5":{"type":"psi","terms":["W","5"]},"w^(w+1)":{"type":"psi","terms":["W","w+1"]},"w^w2":{"type":"psi","terms":["W","w2"]},"w^w3":{"type":"psi","terms":["W","w3"]},"w^w^2":{"type":"psi","terms":["W","w^2"]},"w^(w^2*2)":{"type":"psi","terms":["W","w^2*2"]},"w^w^3":{"type":"psi","terms":["W","w^3"]},"w^w^4":{"type":"psi","terms":["W","w^4"]},"w^w^w":{"type":"psi","terms":["W","w^w"]},"w^w^w2":{"type":"psi","terms":["W","w^w2"]},"w^w^w^2":{"type":"psi","terms":["W","w^w^2"]},"w^w^w^3":{"type":"psi","terms":["W","w^w^3"]},"w^w^w^w":{"type":"psi","terms":["W","w^w^w"]},"w^w^w^w^2":{"type":"psi","terms":["W","w^w^w^2"]},"w^w^w^w^w":{"type":"psi","terms":["W","w^w^w^w"]},"w^w^w^w^w^w":{"type":"psi","terms":["W","w^w^w^w^w"]},"ee0":{"type":"psi","terms":["W","We0"]},"We0":{"type":"psi","terms":["W_2","e0"]},"psi(W_2)":{"type":"psi","terms":["W","W_2"]},"psi(W_2^2)":{"type":"psi","terms":["W","W_2^2"]},"W_2^2":{"type":"psi","terms":["W_3","W_2"]},"W_3":{"type":"psi","terms":["I","2"]},"psi(W_3)":{"type":"psi","terms":["W","W_3"]},"psi(W_4)":{"type":"psi","terms":["W","W_4"]},"W_4":{"type":"psi","terms":["I","3"]},"psi(W_w)":{"type":"psi","terms":["W","W_w"]},"W_w":{"type":"psi","terms":["I","w"]},"psi(W_w2)":{"type":"psi","terms":["W","W_w2"]},"W_w2":{"type":"psi","terms":["I","w2"]},"psi(W_w^2)":{"type":"psi","terms":["W","W_w^2"]},"W_w^2":{"type":"psi","terms":["I","w^2"]},"psi(W_w^3)":{"type":"psi","terms":["W","W_w^3"]},"W_w^3":{"type":"psi","terms":["I","w^3"]},"psi(W_w^w)":{"type":"psi","terms":["W","W_w^w"]},"W_w^w":{"type":"psi","terms":["I","w^w"]},"psi(W_w^w^2)":{"type":"psi","terms":["W","W_w^w^2"]},"W_w^w^2":{"type":"psi","terms":["I","w^w^2"]},"psi(W_w^w^w)":{"type":"psi","terms":["W","W_w^w^w"]},"W_w^w^w":{"type":"psi","terms":["I","w^w^w"]},"psi(W_w^w^w^w)":{"type":"psi","terms":["W","W_w^w^w^w"]},"W_w^w^w^w":{"type":"psi","terms":["I","w^w^w^w"]},"psi(W_e0)":{"type":"psi","terms":["W","W_e0"]},"W_e0":{"type":"psi","terms":["I","e0"]},"psi(W_z0)":{"type":"psi","terms":["W","W_z0"]},"W_z0":{"type":"psi","terms":["I","z0"]},"psi(W_psi(W_2))":{"type":"psi","terms":["W","W_psi(W_2)"]},"W_psi(W_2)":{"type":"psi","terms":["I","psi(W_2)"]},"psi(W_psi(W_3))":{"type":"psi","terms":["W","W_psi(W_3)"]},"W_psi(W_3)":{"type":"psi","terms":["I","psi(W_3)"]},"psi(W_psi(W_w))":{"type":"psi","terms":["W","W_psi(W_w)"]},"psi(W_psi(W_w^2))":{"type":"psi","terms":["W","W_psi(W_w^2)"]},"psi(W_psi(W_w^w))":{"type":"psi","terms":["W","W_psi(W_w^w)"]},"psi(W_psi(W_w^w^w))":{"type":"psi","terms":["W","W_psi(W_w^w^w)"]},"psi(W_psi(W_e0))":{"type":"psi","terms":["W","W_psi(W_e0)"]},"W_psi(W_e0)":{"type":"psi","terms":["I","psi(W_e0)"]},"psi(W_psi(W_psi(W_2)))":{"type":"psi","terms":["W","W_psi(W_psi(W_2))"]},"W_psi(W_psi(W_2))":{"type":"psi","terms":["I","psi(W_psi(W_2))"]},"psi(W_W_W)":{"type":"psi","terms":["W","W_W_W"]},"W_W_W":{"type":"psi","terms":["I","W_W"]},"W_W":{"type":"psi","terms":["I","W"]},"psi(W_W_W_e0)":{"type":"psi","terms":["W","W_W_W_e0"]},"W_W_W_e0":{"type":"psi","terms":["I","W_W_e0"]},"W_W_e0":{"type":"psi","terms":["I","W_e0"]},"psi(W_W_W_psi(W_W))":{"type":"psi","terms":["W","W_W_W_psi(W_W)"]},"W_W_W_psi(W_W)":{"type":"psi","terms":["I","W_W_psi(W_W)"]},"W_W_psi(W_W)":{"type":"psi","terms":["I","W_psi(W_W)"]},"W_psi(W_W)":{"type":"psi","terms":["I","psi(W_W)"]},"psi(W_W_W_W)":{"type":"psi","terms":["W","W_W_W_W"]},"W_W_W_W":{"type":"psi","terms":["I","W_W_W"]},"psi(W_W_W_W_psi(W_W_W))":{"type":"psi","terms":["W","W_W_W_W_psi(W_W_W)"]},"W_W_W_W_psi(W_W_W)":{"type":"psi","terms":["I","W_W_W_psi(W_W_W)"]},"W_W_W_psi(W_W_W)":{"type":"psi","terms":["I","W_W_psi(W_W_W)"]},"W_W_psi(W_W_W)":{"type":"psi","terms":["I","W_psi(W_W_W)"]},"W_psi(W_W_W)":{"type":"psi","terms":["I","psi(W_W_W)"]},"psi(W_W_W_W_psi(W_W_W_W))":{"type":"psi","terms":["W","W_W_W_W_psi(W_W_W_W)"]},"W_W_W_W_psi(W_W_W_W)":{"type":"psi","terms":["I","W_W_W_psi(W_W_W_W)"]},"W_W_W_psi(W_W_W_W)":{"type":"psi","terms":["I","W_W_psi(W_W_W_W)"]},"W_W_psi(W_W_W_W)":{"type":"psi","terms":["I","W_psi(W_W_W_W)"]},"W_psi(W_W_W_W)":{"type":"psi","terms":["I","psi(W_W_W_W)"]},"psi(W_W_W_W_W_W_W)":{"type":"psi","terms":["W","W_W_W_W_W_W_W"]},"W_W_W_W_W_W_W":{"type":"psi","terms":["I","W_W_W_W_W_W"]},"W_W_W_W_W_W":{"type":"psi","terms":["I","W_W_W_W_W"]},"W_W_W_W_W":{"type":"psi","terms":["I","W_W_W_W"]},"e(W+1)":{"type":"psi","terms":["W_2","W_2"]},"psi_1(W_e0)":{"type":"psi","terms":["W_2","W_e0"]},"psi_1(W_W)":{"type":"psi","terms":["W_2","W_W"]},"psi_1(W_W_W)":{"type":"psi","terms":["W_2","W_W_W"]},"e(W_2+1)":{"type":"psi","terms":["W_3","W_3"]},"psi_2(W_W)":{"type":"psi","terms":["W_3","W_W"]},"e(W_3+1)":{"type":"psi","terms":["W_4","W_4"]},"W_5":{"type":"psi","terms":["I","4"]},"W_(w+1)":{"type":"psi","terms":["I","w+1"]},"W_w3":{"type":"psi","terms":["I","w3"]},"W_(w^2*2)":{"type":"psi","terms":["I","w^2*2"]},"W_w^4":{"type":"psi","terms":["I","w^4"]},"W_w^w2":{"type":"psi","terms":["I","w^w2"]},"W_w^w^3":{"type":"psi","terms":["I","w^w^3"]},"W_w^w^w^2":{"type":"psi","terms":["I","w^w^w^2"]},"W_w^w^w^w^w":{"type":"psi","terms":["I","w^w^w^w^w"]},"W_psi(W_psi(W_w))":{"type":"psi","terms":["I","psi(W_psi(W_w))"]},"W_psi(W_psi(W_w^w))":{"type":"psi","terms":["I","psi(W_psi(W_w^w))"]},"W_psi(W_psi(W_e0))":{"type":"psi","terms":["I","psi(W_psi(W_e0))"]},"W_psi(W_psi(W_psi(W_w)))":{"type":"psi","terms":["I","psi(W_psi(W_psi(W_w)))"]},"W_psi(W_psi(W_psi(W_e0)))":{"type":"psi","terms":["I","psi(W_psi(W_psi(W_e0)))"]},"W_psi(W_psi(W_psi(W_psi(W_e0))))":{"type":"psi","terms":["I","psi(W_psi(W_psi(W_psi(W_e0))))"]},"W_psi(W_W_w)":{"type":"psi","terms":["I","psi(W_W_w)"]},"W_psi(W_W_e0)":{"type":"psi","terms":["I","psi(W_W_e0)"]},"W_psi(W_W_psi(W_e0))":{"type":"psi","terms":["I","psi(W_W_psi(W_e0))"]},"W_psi(W_W_psi(W_W))":{"type":"psi","terms":["I","psi(W_W_psi(W_W))"]},"W_psi(W_w)":{"type":"psi","terms":["I","psi(W_w)"]},"W_psi(W_w^2)":{"type":"psi","terms":["I","psi(W_w^2)"]},"W_psi(W_w^w)":{"type":"psi","terms":["I","psi(W_w^w)"]},"W_psi(W_w^w^w)":{"type":"psi","terms":["I","psi(W_w^w^w)"]},"psi(W_psi(W_psi(W_w)))":{"type":"psi","terms":["W","W_psi(W_psi(W_w))"]},"psi(W_psi(W_psi(W_w^w)))":{"type":"psi","terms":["W","W_psi(W_psi(W_w^w))"]},"psi(W_psi(W_psi(W_e0)))":{"type":"psi","terms":["W","W_psi(W_psi(W_e0))"]},"psi(W_psi(W_psi(W_psi(W_w))))":{"type":"psi","terms":["W","W_psi(W_psi(W_psi(W_w)))"]},"psi(W_psi(W_psi(W_psi(W_e0))))":{"type":"psi","terms":["W","W_psi(W_psi(W_psi(W_e0)))"]},"psi(W_psi(W_psi(W_psi(W_psi(W_e0)))))":{"type":"psi","terms":["W","W_psi(W_psi(W_psi(W_psi(W_e0))))"]},"psi(W_W)":{"type":"psi","terms":["W","W_W"]},"psi(W_W_2)":{"type":"psi","terms":["W","W_W_2"]},"W_W_2":{"type":"psi","terms":["I","W_2"]},"psi(W_W_w)":{"type":"psi","terms":["W","W_W_w"]},"W_W_w":{"type":"psi","terms":["I","W_w"]},"psi(W_W_w^w)":{"type":"psi","terms":["W","W_W_w^w"]},"W_W_w^w":{"type":"psi","terms":["I","W_w^w"]},"psi(W_W_e0)":{"type":"psi","terms":["W","W_W_e0"]},"psi(W_W_psi(W_w))":{"type":"psi","terms":["W","W_W_psi(W_w)"]},"W_W_psi(W_w)":{"type":"psi","terms":["I","W_psi(W_w)"]},"psi(W_W_psi(W_e0))":{"type":"psi","terms":["W","W_W_psi(W_e0)"]},"W_W_psi(W_e0)":{"type":"psi","terms":["I","W_psi(W_e0)"]},"psi(W_W_psi(W_psi(W_e0)))":{"type":"psi","terms":["W","W_W_psi(W_psi(W_e0))"]},"W_W_psi(W_psi(W_e0))":{"type":"psi","terms":["I","W_psi(W_psi(W_e0))"]},"psi(W_W_psi(W_W))":{"type":"psi","terms":["W","W_W_psi(W_W)"]},"psi(W_W_psi(W_W_w))":{"type":"psi","terms":["W","W_W_psi(W_W_w)"]},"W_W_psi(W_W_w)":{"type":"psi","terms":["I","W_psi(W_W_w)"]},"psi(W_W_psi(W_W_e0))":{"type":"psi","terms":["W","W_W_psi(W_W_e0)"]},"W_W_psi(W_W_e0)":{"type":"psi","terms":["I","W_psi(W_W_e0)"]},"psi(W_W_psi(W_W_psi(W_e0)))":{"type":"psi","terms":["W","W_W_psi(W_W_psi(W_e0))"]},"W_W_psi(W_W_psi(W_e0))":{"type":"psi","terms":["I","W_psi(W_W_psi(W_e0))"]},"psi(W_W_psi(W_W_psi(W_W)))":{"type":"psi","terms":["W","W_W_psi(W_W_psi(W_W))"]},"W_W_psi(W_W_psi(W_W))":{"type":"psi","terms":["I","W_psi(W_W_psi(W_W))"]},"psi(W_W_psi(W_W_psi(W_W_e0)))":{"type":"psi","terms":["W","W_W_psi(W_W_psi(W_W_e0))"]},"W_W_psi(W_W_psi(W_W_e0))":{"type":"psi","terms":["I","W_psi(W_W_psi(W_W_e0))"]},"W_psi(W_W_psi(W_W_e0))":{"type":"psi","terms":["I","psi(W_W_psi(W_W_e0))"]},"psi(W_W_psi(W_W_psi(W_W_psi(W_W))))":{"type":"psi","terms":["W","W_W_psi(W_W_psi(W_W_psi(W_W)))"]},"W_W_psi(W_W_psi(W_W_psi(W_W)))":{"type":"psi","terms":["I","W_psi(W_W_psi(W_W_psi(W_W)))"]},"W_psi(W_W_psi(W_W_psi(W_W)))":{"type":"psi","terms":["I","psi(W_W_psi(W_W_psi(W_W)))"]},"W_psi(W_W_W_psi(W_W))":{"type":"psi","terms":["I","psi(W_W_W_psi(W_W))"]},"W_psi(W_W_W_psi(W_W_W))":{"type":"psi","terms":["I","psi(W_W_W_psi(W_W_W))"]},"W_W_3":{"type":"psi","terms":["I","W_3"]},"W_W_4":{"type":"psi","terms":["I","W_4"]},"W_W_w2":{"type":"psi","terms":["I","W_w2"]},"W_W_w^2":{"type":"psi","terms":["I","W_w^2"]},"W_W_w^3":{"type":"psi","terms":["I","W_w^3"]},"W_W_w^w^2":{"type":"psi","terms":["I","W_w^w^2"]},"W_W_w^w^w":{"type":"psi","terms":["I","W_w^w^w"]},"W_W_w^w^w^w":{"type":"psi","terms":["I","W_w^w^w^w"]},"W_W_psi(W_2)":{"type":"psi","terms":["I","W_psi(W_2)"]},"W_W_psi(W_w^w)":{"type":"psi","terms":["I","W_psi(W_w^w)"]},"W_W_e(W+1)":{"type":"psi","terms":["I","W_e(W+1)"]},"W_W_W_2":{"type":"psi","terms":["I","W_W_2"]},"W_W_W_3":{"type":"psi","terms":["I","W_W_3"]},"W_W_W_w":{"type":"psi","terms":["I","W_W_w"]},"psi(W_W_psi(W_W_psi(W_W_psi(W_W_psi(W_W)))))":{"type":"psi","terms":["W","W_W_psi(W_W_psi(W_W_psi(W_W_psi(W_W))))"]},"W_W_psi(W_W_psi(W_W_psi(W_W_psi(W_W))))":{"type":"psi","terms":["I","W_psi(W_W_psi(W_W_psi(W_W_psi(W_W))))"]},"W_psi(W_W_psi(W_W_psi(W_W_psi(W_W))))":{"type":"psi","terms":["I","psi(W_W_psi(W_W_psi(W_W_psi(W_W))))"]},"psi(W_W_W_psi(W_W_psi(W_W)))":{"type":"psi","terms":["W","W_W_W_psi(W_W_psi(W_W))"]},"W_W_W_psi(W_W_psi(W_W))":{"type":"psi","terms":["I","W_W_psi(W_W_psi(W_W))"]},"psi(W_W_W_psi(W_W_W))":{"type":"psi","terms":["W","W_W_W_psi(W_W_W)"]},"psi(W_W_W_psi(W_W_W_psi(W_W)))":{"type":"psi","terms":["W","W_W_W_psi(W_W_W_psi(W_W))"]},"W_W_W_psi(W_W_W_psi(W_W))":{"type":"psi","terms":["I","W_W_psi(W_W_W_psi(W_W))"]},"W_W_psi(W_W_W_psi(W_W))":{"type":"psi","terms":["I","W_psi(W_W_W_psi(W_W))"]},"psi(W_W_W_psi(W_W_W_psi(W_W_W)))":{"type":"psi","terms":["W","W_W_W_psi(W_W_W_psi(W_W_W))"]},"W_W_W_psi(W_W_W_psi(W_W_W))":{"type":"psi","terms":["I","W_W_psi(W_W_W_psi(W_W_W))"]},"W_W_psi(W_W_W_psi(W_W_W))":{"type":"psi","terms":["I","W_psi(W_W_W_psi(W_W_W))"]},"psi(W_W_W_psi(W_W_W_psi(W_W_W_psi(W_W_W))))":{"type":"psi","terms":["W","W_W_W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))"]},"W_W_W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))":{"type":"psi","terms":["I","W_W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))"]},"W_W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))":{"type":"psi","terms":["I","W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))"]},"W_psi(W_W_W_psi(W_W_W_psi(W_W_W)))":{"type":"psi","terms":["I","psi(W_W_W_psi(W_W_W_psi(W_W_W)))"]},"psi(W_W_W_W_psi(W_W_W_W_psi(W_W_W_W)))":{"type":"psi","terms":["W","W_W_W_W_psi(W_W_W_W_psi(W_W_W_W))"]},"W_W_W_W_psi(W_W_W_W_psi(W_W_W_W))":{"type":"psi","terms":["I","W_W_W_psi(W_W_W_W_psi(W_W_W_W))"]},"W_W_W_psi(W_W_W_W_psi(W_W_W_W))":{"type":"psi","terms":["I","W_W_psi(W_W_W_W_psi(W_W_W_W))"]},"W_W_psi(W_W_W_W_psi(W_W_W_W))":{"type":"psi","terms":["I","W_psi(W_W_W_W_psi(W_W_W_W))"]},"W_psi(W_W_W_W_psi(W_W_W_W))":{"type":"psi","terms":["I","psi(W_W_W_W_psi(W_W_W_W))"]},"psi(W_W_W_W_W)":{"type":"psi","terms":["W","W_W_W_W_W"]},"psi(W_W_W_W_W_psi(W_W_W_W_W))":{"type":"psi","terms":["W","W_W_W_W_W_psi(W_W_W_W_W)"]},"W_W_W_W_W_psi(W_W_W_W_W)":{"type":"psi","terms":["I","W_W_W_W_psi(W_W_W_W_W)"]},"W_W_W_W_psi(W_W_W_W_W)":{"type":"psi","terms":["I","W_W_W_psi(W_W_W_W_W)"]},"W_W_W_psi(W_W_W_W_W)":{"type":"psi","terms":["I","W_W_psi(W_W_W_W_W)"]},"W_W_psi(W_W_W_W_W)":{"type":"psi","terms":["I","W_psi(W_W_W_W_W)"]},"W_psi(W_W_W_W_W)":{"type":"psi","terms":["I","psi(W_W_W_W_W)"]},"psi(W_W_W_W_W_W)":{"type":"psi","terms":["W","W_W_W_W_W_W"]},"W_psi(W_W_W_W_W_W)":{"type":"psi","terms":["I","psi(W_W_W_W_W_W)"]},"W_W^2":{"type":"psi","terms":["I","W^2"]},"W_e(W+1)":{"type":"psi","terms":["I","e(W+1)"]},"W":{"type":"psi","terms":["I","0"]},"W_psi_1(W_W)":{"type":"psi","terms":["I","psi_1(W_W)"]},"W_e(W_2+1)":{"type":"psi","terms":["I","e(W_2+1)"]},"W_W_psi(W_psi(W_w))":{"type":"psi","terms":["I","W_psi(W_psi(W_w))"]},"W_W_psi(W_psi(W_psi(W_e0)))":{"type":"psi","terms":["I","W_psi(W_psi(W_psi(W_e0)))"]},"W_W_psi(W_W_e0))":{"type":"psi","terms":["I","W_psi(W_W_e0))"]},"W_psi(W_W_e0))":{"type":"psi","terms":["I","psi(W_W_e0))"]},"W_W_W_w^2":{"type":"psi","terms":["I","W_W_w^2"]},"W_W_W_w^w":{"type":"psi","terms":["I","W_W_w^w"]},"W_W_W_w^w^w":{"type":"psi","terms":["I","W_W_w^w^w"]},"W_W_W_psi(W_w)":{"type":"psi","terms":["I","W_W_psi(W_w)"]},"W_W_W_psi(W_e0)":{"type":"psi","terms":["I","W_W_psi(W_e0)"]},"W_W_W_psi(W_psi(W_e0))":{"type":"psi","terms":["I","W_W_psi(W_psi(W_e0))"]},"W_W_W_W_2":{"type":"psi","terms":["I","W_W_W_2"]},"W_W_W_W_w":{"type":"psi","terms":["I","W_W_W_w"]},"W_W_W_W_w^w":{"type":"psi","terms":["I","W_W_W_w^w"]},"W_W_W_W_e0":{"type":"psi","terms":["I","W_W_W_e0"]},"W_W_W_W_psi(W_e0)":{"type":"psi","terms":["I","W_W_W_psi(W_e0)"]},"W_W_W_W_psi(W_W)":{"type":"psi","terms":["I","W_W_W_psi(W_W)"]},"W_W_W_W_W_w":{"type":"psi","terms":["I","W_W_W_W_w"]},"W_W_W_W_W_e0":{"type":"psi","terms":["I","W_W_W_W_e0"]},"W_W_W_W_W_psi(W_W)":{"type":"psi","terms":["I","W_W_W_W_psi(W_W)"]},"W_W_W_W_W_W_e0":{"type":"psi","terms":["I","W_W_W_W_W_e0"]},"W_W_W_W_W_W_W_W":{"type":"psi","terms":["I","W_W_W_W_W_W_W"]},"psi_I(I)":{"type":"psi","terms":["I","I"]}}</textarea>
 </body>
 </html>
