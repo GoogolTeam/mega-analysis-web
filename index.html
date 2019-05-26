@@ -10,6 +10,7 @@
 	}
 	function onload(){
 		elem("inputbox").value="0 1 2 w w^2 w^w e0 z0 g0 W W_2 Z".replace(/ /g,"\n")
+		elem("inputbox").value="W W_2 psi_I(I) W_(psi_I(I)+1) W_(psi_I(I)2) psi_I(I2) W_(psi_I(I2)+1)".replace(/ /g,"\n")
 		elem("nextoutput").onkeypress=nextoutputenter
 		load2("UNOCF")
 	}
@@ -116,12 +117,15 @@
 		notationid++
 		notationid%=notations.length
 		notation=notations[notationid]
+		elem("notationbox").textContent=notation
 		formatid=formats[notation][formatids[notation]]
+		elem("formatbox").textContent=formatid
 	}
 	function nextformat(){
 		formatids[notation]++
 		formatids[notation]%=formats[notation].length
 		formatid=formats[notation][formatids[notation]]
+		elem("formatbox").textContent=formatid
 	}
 	function parse(value,notation){
 		if(notation=="TON"){
@@ -176,7 +180,24 @@
 				}else if(value===undefined){
 					return [ordinal]
 				}else if(value.type=="psi"){
-					return getreqordinals(value.terms[0],notation,formatid).concat(getreqordinals(value.terms[1],notation,formatid))
+					var ret=getreqordinals(value.terms[0],notation,formatid).concat(getreqordinals(value.terms[1],notation,formatid))
+					if(formatid=="standard"){
+						if(value.type=="psi"&&value.terms[0]=="I"){
+							var a=expand1(value.terms[1],notation)
+							if(a===undefined){
+								ret.push(value.terms[1])
+							}else if(a.type=="sum"&&a.terms[0]=="I"&&a.terms[a.terms.length-1]!="I"){
+								var i=0
+								for(;i<a.terms.length;i++){
+									if(a.terms[i]!="I"){
+										break
+									}
+								}
+								//ret.push(sum(listsum(new Array(i).fill("I")),listsum(a.terms.slice(i))))
+							}
+						}
+					}
+					return ret
 				}else if(value.type=="sum"){
 					var ret=[]
 					for(var i=0;i<value.terms.length;i++){
@@ -264,7 +285,29 @@
 			}else if(eq(value.terms[0],W)){
 				return {value:"psi("+formatnice(value.terms[1]).value+")"}
 			}else if(value.terms[0]=="I"){
-				return {value:"W_{"+formatnice(value.terms[1]).value+"}"}
+				var a=expand1(value.terms[1],"UNOCF")
+				if(a===undefined){
+					return {value:"W_?"}
+				}else if(a=="I"){
+					return {value:"psi_I(I)"}
+				}else if(a.type=="psi"){
+					return {value:"W_{"+formatnice(sum(one,a)).value+"}"}
+				}else{
+					var i=0
+					for(;i<a.terms.length;i++){
+						if(a.terms[i]!="I"){
+							break
+						}
+					}
+					if(i==0){
+						return {value:"W_{"+formatnice(sum(one,a)).value+"}"}
+					}
+					if(i==a.terms.length){
+						return {value:"psi_I(I"+i+")"}
+					}
+					//return {value:"W_{psi_I(I"+(i>1?i:"")+")+"+formatnice(listsum(a.terms.slice(i))).value+"}"}
+					return {value:"W_{"+formatnice(sum(psi("I",listsum(new Array(i).fill("I"))),listsum(a.terms.slice(i)))).value+"}"}
+				}
 			}else{
 				return {value:"psi_{"+formatnice(value.terms[0]).value+"}("+formatnice(value.terms[1]).value+")"}
 			}
@@ -495,7 +538,7 @@
 	function dec(a){
 		var W=psi("I","0")
 		var one=psi(W,"0")
-		if(eq(a,one)){
+		if(a.type=="psi"){
 			return "0"
 		}else{
 			var newterms=Object.assign([],a.terms)
@@ -534,6 +577,9 @@
 		b=expand1(b,"UNOCF")
 		if(b.type!="sum"){
 			return sum(a,{type:"sum",terms:[b]})
+		}
+		if(compare(a.terms[a.terms.length-1],b.terms[0])){
+			return sum(dec(a),b)
 		}
 		return {type:"sum",terms:a.terms.concat(b.terms)}
 	}
@@ -614,8 +660,8 @@
 		<input id="nextoutput"></input>
 	</div>
 	<br>
-	<button onclick="nextnotation()">Change notation</button>
-	<button onclick="nextformat()">Change output format</button>
+	<button onclick="nextnotation()">Change notation: <text id="notationbox">UNOCF</text></button>
+	<button onclick="nextformat()">Change output format: <text id="formatbox">depthmax</text></button>
 	<br>
 	<button onclick="save(notation)">Save analysis for current notation</button>
 	<button onclick="saveall()">Save analysis for all notations</button>
