@@ -109,7 +109,7 @@
 	var notations=["UNOCF","TON"]
 	var notationid=0
 	var notation="UNOCF"
-	var formats={"UNOCF":["depth1","depthmax"],"TON":["depth1","depthmax"]}
+	var formats={"UNOCF":["depth1","depthmax","standard"],"TON":["depth1","depthmax"]}
 	var formatids={"UNOCF":1,"TON":1}
 	var formatid="depthmax"
 	function nextnotation(){
@@ -169,7 +169,7 @@
 				}else if(value.type=="psi"||value.type=="sum"){
 					return value.terms.filter(a=>expand1(a,notation)===undefined)
 				}
-			}else if(formatid=="depthmax"){
+			}else{
 				var value=expand1(ordinal,notation)
 				if(baseordinals.includes(ordinal)){
 					return []
@@ -238,15 +238,74 @@
 				}else if(value.type=="sum"){
 					return value.terms.map(a=>format(a,notation,formatid)).join("+")
 				}
+			}else if(formatid="standard"){
+				return formatnice(ordinal).value
 			}
+		}
+	}
+	function formatnice(ordinal){
+		var baseordinals=["0","I"]
+		if(baseordinals.includes(ordinal)){
+			return {value:ordinal}
+		}
+		var value=expand1(ordinal,"UNOCF")
+		if(value===undefined){
+			return {value:"?"}
+		}else if(value.type=="psi"){
+			var W=psi("I","0")
+			var one=psi(W,"0")
+			var w=psi(W,one)
+			if(eq(value,one)){
+				return {value:"1"}
+			}else if(eq(value,w)){
+				return {value:"w"}
+			}else if(eq(value,W)){
+				return {value:"W"}
+			}else if(eq(value.terms[0],W)){
+				return {value:"psi("+formatnice(value.terms[1]).value+")"}
+			}else if(value.terms[0]=="I"){
+				return {value:"W_{"+formatnice(value.terms[1]).value+"}"}
+			}else{
+				return {value:"psi_{"+formatnice(value.terms[0]).value+"}("+formatnice(value.terms[1]).value+")"}
+			}
+		}else{
+			var W=psi("I","0")
+			var one=psi(W,"0")
+			var terms=[]
+			var term;
+			var rep=0
+			for(var i=0;i<value.terms.length;i++){
+				if(rep==0){
+					term=value.terms[i]
+					rep=1
+				}else if(eq(term,value.terms[i])){
+					rep++
+				}else{
+					terms.push([term,rep])
+					term=value.terms[i]
+					rep=1
+				}
+			}
+			if(rep){
+				terms.push([term,rep])
+			}
+			for(var i=0;i<terms.length;i++){
+				if(eq(terms[i][0],one)){
+					terms[i]=""+terms[i][1]
+				}else{
+					terms[i]=formatnice(terms[i][0]).value+(terms[i][1]>1?"*"+terms[i][1]:"")
+				}
+			}
+			return {value:terms.join("+")}
 		}
 	}
 	function expand1(ordinal,notation){
 		var baseordinals=["0","I"]
-		var value=analyses[notation][ordinal]
 		if(baseordinals.includes(ordinal)||typeof ordinal=="object"){
 			return ordinal
-		}else if(value===undefined){
+		}
+		var value=analyses[notation][ordinal]
+		if(value===undefined){
 			return undefined
 		}else{
 			return {type:value.type,terms:value.terms}
@@ -264,6 +323,8 @@
 		}
 	}
 	function compare(a,b){
+		a=expand1(a,"UNOCF")
+		b=expand1(b,"UNOCF")
 		//sums
 		if(a.type=="sum"||b.type=="sum"){
 			if(a.type!="sum"){
@@ -303,9 +364,9 @@
 		one=psi(psi("I","0"),"0")
 		if(a.terms[0]=="I"){
 			//psi_{psi_I(x+1)}(0)
-			return compare(psi(psi("I",sum(a.terms[1],one)),"0"),b)
+			return compare({type:"psi",terms:[psi("I",sum(a.terms[1],one)),"0"]},b)
 		}else if(b.terms[0]=="I"){
-			return compare(a,psi(psi("I",sum(b.terms[1],one)),"0"))
+			return compare(a,{type:"psi",terms:[psi("I",sum(b.terms[1],one)),"0"]})
 		}
 		//final comparison
 		return eq(a.terms[0],b.terms[0])?compare(a.terms[1],b.terms[1]):compare(a.terms[0],b.terms[0])
@@ -317,11 +378,16 @@
 		if(a=="0"&&b!="0"||a!="0"&&b=="0"||a=="I"&&b!="I"||a!="I"&&b=="I"){
 			return false
 		}
+		a=expand1(a,"UNOCF")
+		b=expand1(b,"UNOCF")
 		if(a.type!=b.type){
 			return false
 		}
 		if(a.type=="psi"){
 			return eq(a.terms[0],b.terms[0])&&eq(a.terms[1],b.terms[1])
+		}
+		if(a.terms.length!=b.terms.length){
+			return false
 		}
 		for(var i=0;i<a.terms.length&&i<b.terms.length;i++){
 			if(!eq(a.terms[i],b.terms[i])){
@@ -331,10 +397,11 @@
 		return true
 	}
 	function fs(a,n){
+		a=expand1(a,"UNOCF")
 		if(a.type=="sum"){
 			var newterms=Object.assign([],a.terms)
 			var lastterm=newterms.pop()
-			return sum({type:"sum",terms:newterms},fs(lastterm,n))
+			return sum(listsum(newterms),fs(lastterm,n))
 		}
 		if(a=="0"){
 			return "0"
@@ -348,7 +415,7 @@
 			}else if(n==1){
 				return psi("I","I")
 			}else{
-				return psi("I",{type:"sum",terms:new Array(n).fill("I")})
+				return psi("I",listsum(new Array(n).fill("I")))
 			}
 		}
 		if(regular(a)){
@@ -358,32 +425,31 @@
 			}else if(n==1){
 				return psi(a,psi("I","I"))
 			}else{
-				return psi(a,psi("I",{type:"sum",terms:new Array(n).fill("I")}))
+				return psi(a,psi("I",listsum(new Array(n).fill("I"))))
 			}
 		}
 		if(n==0){
 			return "0"
 		}
-		if(a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],one)){
-			var newterms=Object.assign([],a.terms[1].terms)
-			newterms.pop()
-			return sum(psi(a.terms[0],listsum(newterms)),fs(a,n-1))
+		var c=expand1(a.terms[1],"UNOCF")
+		if(c.type=="sum"&&eq(c.terms[c.terms.length-1],one)){
+			return sum(psi(a.terms[0],dec(c)),fs(a,n-1))
 		}
-		if(eq(a.terms[1],one)){
+		if(eq(c,one)){
 			if(eq(a.terms[0],W)){
 				return sum(one,fs(a,n-1))
 			}else{
 				//psi_psi_I(x+1)(1)
-				var newterms=Object.assign([],a.terms[0].terms[1].terms)
-				newterms.pop()
-				return sum(psi("I",listsum(newterms)),fs(a,n-1))
+				var d=expand1(a.terms[0],"UNOCF")
+				var e=expand1(d.terms[1],"UNOCF")
+				return sum(psi("I",dec(e)),fs(a,n-1))
 			}
 		}
-		var w={type:"psi",terms:[W,one]}
-		if(eq(cof(a.terms[1]),w)){
-			return psi(a.terms[0],fs(a.terms[1],n))
+		var w=psi(W,one)
+		if(eq(cof(c),w)){
+			return psi(a.terms[0],fs(c,n))
 		}
-		return ufs(a,n,a.terms[1])
+		return ufs(a,n,c)
 	}
 	function cof(a){
 		if(a=="0"||a=="I"){
@@ -391,10 +457,11 @@
 		}
 		var W=psi("I","0")
 		var one=psi(W,"0")
-		var w={type:"psi",terms:[W,one]}
+		var w=psi(W,one)
 		if(eq(a,one)){
 			return one
 		}
+		a=expand1(a,"UNOCF")
 		if(a.type=="sum"){
 			return cof(a.terms[a.terms.length-1])
 		}
@@ -413,6 +480,7 @@
 		if(a=="I"){
 			return true
 		}
+		a=expand1(a,"UNOCF")
 		if(a.type!="psi"){
 			return false
 		}
@@ -424,6 +492,17 @@
 		var argcof=cof(a.terms[1])
 		return argcof=="0"||eq(argcof,one)
 	}
+	function dec(a){
+		var W=psi("I","0")
+		var one=psi(W,"0")
+		if(eq(a,one)){
+			return "0"
+		}else{
+			var newterms=Object.assign([],a.terms)
+			newterms.pop()
+			return listsum(newterms)
+		}
+	}
 	function ufs(a,n,x){
 		if(n==0){
 			return "0"
@@ -431,10 +510,10 @@
 		if(a=="0"){
 			return "0"
 		}
+		a=expand1(a,"UNOCF")
 		if(a.type=="sum"){
-			var newterms=Object.assign([],a.terms)
-			var lastterm=newterms.pop()
-			return sum(listsum(newterms),ufs(lastterm,n,x))
+			var lastterm=a.terms[a.terms.length-1]
+			return sum(dec(a),ufs(lastterm,n,x))
 		}
 		if(a.type=="psi"&&!regular(a)){
 			return psi(a.terms[0],ufs(a.terms[1],n,x))
@@ -448,9 +527,11 @@
 		if(b=="0"){
 			return a
 		}
+		a=expand1(a,"UNOCF")
 		if(a.type!="sum"){
 			return sum({type:"sum",terms:[a]},b)
 		}
+		b=expand1(b,"UNOCF")
 		if(b.type!="sum"){
 			return sum(a,{type:"sum",terms:[b]})
 		}
@@ -467,11 +548,13 @@
 	}
 	function psi(a,b){
 		if(b=="0"){
-			if(a.type=="psi"&&a.terms[0]=="I"&&a.terms[1].type=="sum"&&eq(a.terms[1].terms[a.terms[1].terms.length-1],1)){
-				//psi_W_x(0)
-				var newterms=Object.assign([],a.terms[0].terms[1].terms)
-				newterms.pop()
-				return {type:"psi",terms:["I",listsum(newterms)]}
+			a=expand1(a,"UNOCF")
+			if(a.type=="psi"&&a.terms[0]=="I"){
+				var c=expand1(a.terms[1],"UNOCF")
+				if(c.type=="sum"&&eq(c.terms[c.terms.length-1],"1")){
+					//psi_W_x(0)
+					return {type:"psi",terms:["I",dec(c)]}
+				}
 			}
 		}
 		return {type:"psi",terms:[a,b]}
@@ -491,6 +574,7 @@
 		}
 		return fs(b,i)
 	}
+	cache={}
 	function ruler(num,den){
 		if(!den){
 			return ruler(num,1)
@@ -507,7 +591,10 @@
 		if(!(num%2)&&!(den%2)){
 			return ruler(num/2,den/2)
 		}
-		return interp(ruler(num-1,den),ruler(num+1,den))
+		if(!cache[[num,den]]){
+			cache[[num,den]]=interp(ruler(num-1,den),ruler(num+1,den))
+		}
+		return cache[[num,den]]
 	}
 	</script>
 	<style>
