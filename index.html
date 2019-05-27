@@ -10,9 +10,10 @@
 	}
 	function onload(){
 		elem("inputbox").value="0 1 2 w w^2 w^w e0 z0 g0 W W_2 Z".replace(/ /g,"\n")
-		elem("inputbox").value="W W_2 psi_I(I) W_(psi_I(I)+1) W_(psi_I(I)2) psi_I(I2) W_(psi_I(I2)+1)".replace(/ /g,"\n")
+		//elem("inputbox").value="W W_2 psi_I(I) W_(psi_I(I)+1) W_(psi_I(I)2) psi_I(I2) W_(psi_I(I2)+1)".replace(/ /g,"\n")
+		elem("inputbox").value="w+1".replace(/ /g,"\n")
 		elem("nextoutput").onkeypress=nextoutputenter
-		load2("UNOCF")
+		//load2("UNOCF")
 	}
 	async function analyze(){
 		analysis=analyses[notation]
@@ -41,10 +42,9 @@
 					break
 				}
 			}else{
-				elem("analysis").style.display=""
 				var newordinal=await analyzeordinal(nextordinal)
 				if(newordinal!=""){
-					analysis[nextordinal]=parse(newordinal,notation)
+					analysis[nextordinal]=newordinal
 				}else{
 					skipordinals.push(nextordinal)
 				}
@@ -57,6 +57,32 @@
 	}
 	var savedresolve;
 	async function analyzeordinal(ordinal){
+		if(notation=="UNOCF"){
+			//autoanalyze sums
+			//this will probably break stuff in cases like W+2, so be careful
+			var terms=[]
+			var term=""
+			var nesting=0
+			for(var i=0;i<ordinal.length;i++){
+				if(ordinal[i]=="+"&&nesting==0){
+					terms.push(term)
+					term=""
+				}else{
+					if(ordinal[i]=="("){
+						nesting++
+					}else if(ordinal[i]==")"){
+						nesting--
+					}
+					term+=ordinal[i]
+				}
+			}
+			terms.push(term)
+			if(terms.length>1){
+				var ret={type:"sum",terms:terms}
+				return new Promise((resolve,reject)=>resolve(ret))
+			}
+		}
+		elem("analysis").style.display=""
 		var nextinput=elem("nextinput")
 		var nextoutput=elem("nextoutput")
 		nextinput.textContent=ordinal
@@ -70,7 +96,7 @@
 		if(e.keyCode==13){
 			value=e.srcElement.value
 			e.srcElement.value=""
-			savedresolve(value)
+			savedresolve(parse(value,notation))
 		}
 	}
 	function save(notation){
@@ -111,8 +137,8 @@
 	var notationid=0
 	var notation="UNOCF"
 	var formats={"UNOCF":["depth1","depthmax","standard"],"TON":["depth1","depthmax"]}
-	var formatids={"UNOCF":1,"TON":1}
-	var formatid="depthmax"
+	var formatids={"UNOCF":2,"TON":1}
+	var formatid="standard"
 	function nextnotation(){
 		notationid++
 		notationid%=notations.length
@@ -181,7 +207,7 @@
 					return [ordinal]
 				}else if(value.type=="psi"){
 					var ret=getreqordinals(value.terms[0],notation,formatid).concat(getreqordinals(value.terms[1],notation,formatid))
-					if(formatid=="standard"){
+					/*if(formatid=="standard"){
 						if(value.type=="psi"&&value.terms[0]=="I"){
 							var a=expand1(value.terms[1],notation)
 							if(a===undefined){
@@ -196,7 +222,7 @@
 								//ret.push(sum(listsum(new Array(i).fill("I")),listsum(a.terms.slice(i))))
 							}
 						}
-					}
+					}*/
 					return ret
 				}else if(value.type=="sum"){
 					var ret=[]
@@ -321,7 +347,7 @@
 				if(rep==0){
 					term=value.terms[i]
 					rep=1
-				}else if(eq(term,value.terms[i])){
+				}else if(value.terms[i]!==undefined&&eq(term,value.terms[i])){
 					rep++
 				}else{
 					terms.push([term,rep])
@@ -351,7 +377,7 @@
 		if(value===undefined){
 			return undefined
 		}else{
-			return {type:value.type,terms:value.terms}
+			return value
 		}
 	}
 	function expand(ordinal){
@@ -415,6 +441,9 @@
 		return eq(a.terms[0],b.terms[0])?compare(a.terms[1],b.terms[1]):compare(a.terms[0],b.terms[0])
 	}
 	function eq(a,b){
+		if(a===undefined||b===undefined){
+			return false
+		}
 		if(a==b){
 			return true
 		}
@@ -423,6 +452,9 @@
 		}
 		a=expand1(a,"UNOCF")
 		b=expand1(b,"UNOCF")
+		if(a===undefined||b===undefined){
+			return false
+		}
 		if(a.type!=b.type){
 			return false
 		}
@@ -661,7 +693,7 @@
 	</div>
 	<br>
 	<button onclick="nextnotation()">Change notation: <text id="notationbox">UNOCF</text></button>
-	<button onclick="nextformat()">Change output format: <text id="formatbox">depthmax</text></button>
+	<button onclick="nextformat()">Change output format: <text id="formatbox">standard</text></button>
 	<br>
 	<button onclick="save(notation)">Save analysis for current notation</button>
 	<button onclick="saveall()">Save analysis for all notations</button>
